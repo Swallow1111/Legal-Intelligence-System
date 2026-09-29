@@ -1,13 +1,52 @@
 // Hot ranking: attention over the last 48 hours from independent participants.
 // Each participant counts once per window (repeat collection does not add heat), decays with a
 // 24-hour half-life, and the source time (not collection time) places evidence in the window.
+// Legal authority exception: one selected, first-party T1 report in a rule-bearing legal category
+// may enter without a second source. Its bounded score contribution decays on the same clock.
 import { sql } from "../db.ts";
 import { tierRank, type HotEntry } from "./hot-read.ts";
 
-export const HOT_RULE_VERSION = "heat-v1-48h-halflife24h";
+export const HOT_RULE_VERSION = "heat-v2-legal-authority-single";
 const WINDOW_HOURS = 48;
 const HALF_LIFE_HOURS = 24;
 const MIN_PARTICIPANTS = 2;
+
+const AUTHORITY_CATEGORIES = new Set([
+  "legislation-policy",
+  "judicial-rules",
+  "case-rules",
+  "regulatory-enforcement",
+]);
+
+export interface AuthorityReport {
+  first_party: boolean;
+  selected: boolean;
+  score: number | null;
+  tier: string;
+  category: string | null;
+  at: Date;
+}
+
+/**
+ * Extra heat for a legally authoritative single-source update.
+ *
+ * It is intentionally not a fixed bonus: the already-calibrated editorial score contributes at most
+ * one extra participant (score / 100), and decays with the same 24-hour half-life as ordinary heat.
+ * Routine official news, T2 reports, non-first-party summaries and non-rule categories get no boost.
+ */
+export function legalAuthorityBoost(reports: readonly AuthorityReport[], at: Date): number {
+  let best = 0;
+  for (const report of reports) {
+    if (!report.first_party || !report.selected || report.tier !== "T1" || !report.category || !AUTHORITY_CATEGORIES.has(report.category)) continue;
+    const score = Number(report.score ?? 0);
+    if (!Number.isFinite(score) || score <= 0) continue;
+    const ageHours = (at.getTime() - report.at.getTime()) / 3600_000;
+    if (ageHours < 0 || ageHours > WINDOW_HOURS) continue;
+    const decay = Math.pow(0.5, ageHours / HALF_LIFE_HOURS);
+    best = Math.max(best, Math.min(1, score / 100) * decay);
+  }
+  return best;
+}
 
 interface HeatRow {
   story_id: number;
@@ -88,22 +127,51 @@ export function heatIndex(heat: number): number {
   return Math.round(heat * 100) / 10; // one decimal on the 10× scale shown to readers
 }
 
+interface RankingCandidate {
+  row: HeatRow;
+  reports: Array<{
+    id: string;
+    url: string;
+    title: string;
+    source_name: string;
+    first_party: boolean;
+    selected: boolean;
+    score: number | null;
+    tier: string;
+    category: string | null;
+    at: Date;
+  }>;
+  authorityBoost: number;
+  rankingHeat: number;
+}
+
 export async function computeHotRanking(at = new Date()): Promise<{ id: number; entries: number }> {
   const behind = behindSources(await sourceClocks(), at.getTime(), true);
-  const rows = (await heatRows(at, behind)).filter((r) => Number(r.participants) >= MIN_PARTICIPANTS && Number(r.editorial_participants) >= 1);
-  rows.sort((a, b) => Number(b.heat) - Number(a.heat) || (b.latest_at?.getTime() ?? 0) - (a.latest_at?.getTime() ?? 0));
+  const baseRows = (await heatRows(at, behind)).filter((r) => Number(r.editorial_participants) >= 1);
 
-  const entries: HotEntry[] = [];
-  for (const r of rows) {
-    if (entries.length >= 10) break;
-    const reports = await sql<{ id: string; url: string; title: string; source_name: string; first_party: boolean; selected: boolean; score: number | null; at: Date }[]>`
-      SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.url, p.title, s.name AS source_name, p.first_party, p.selected, p.score,
+  const candidates: RankingCandidate[] = [];
+  for (const r of baseRows) {
+    const reports = await sql<RankingCandidate["reports"]>`
+      SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.url, p.title, s.name AS source_name,
+             p.first_party, p.selected, p.score, s.tier, p.category,
              coalesce(p.published_at, p.discovered_at) AS at
       FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
       JOIN sources s ON s.id = p.source_id
       WHERE f.story_id = ${r.story_id} AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${at})
       ORDER BY p.article_id`;
     if (reports.length === 0) continue;
+
+    const authorityBoost = Number(r.participants) < MIN_PARTICIPANTS ? legalAuthorityBoost(reports, at) : 0;
+    if (Number(r.participants) < MIN_PARTICIPANTS && authorityBoost <= 0) continue;
+    candidates.push({ row: r, reports, authorityBoost, rankingHeat: Number(r.heat) + authorityBoost });
+  }
+
+  candidates.sort((a, b) => b.rankingHeat - a.rankingHeat || (b.row.latest_at?.getTime() ?? 0) - (a.row.latest_at?.getTime() ?? 0));
+
+  const entries: HotEntry[] = [];
+  for (const candidate of candidates) {
+    if (entries.length >= 10) break;
+    const { row: r, reports, authorityBoost, rankingHeat } = candidate;
     const rep = [...reports].sort((x, y) => Number(y.first_party) - Number(x.first_party) || Number(y.selected) - Number(x.selected) || (Number(y.score ?? 0) - Number(x.score ?? 0)))[0]!;
     const participants = await sql<{ name: string; kind: "editorial" | "signal"; tier: string; at: Date }[]>`
       SELECT DISTINCT ON (ss.participant_key) s.name, ss.kind, s.tier, ss.observed_at AS at
@@ -112,11 +180,11 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       ORDER BY ss.participant_key, (ss.kind = 'editorial') DESC, ss.observed_at DESC`;
     // The reporting sources of the window, latest first (signal participants are counted separately).
     const reporting = participants.filter((p) => p.kind === "editorial").sort((x, y) => y.at.getTime() - x.at.getTime());
-    const heat = heatIndex(Number(r.heat));
-    // The change against six hours before compares only participants whose sources were observed
-    // throughout; with none of the earlier ones observed there is no comparison.
+    const heat = heatIndex(rankingHeat);
+    // The trend remains a discussion-heat comparison. The authority contribution is a current-ranking
+    // admission/rank signal, not invented historical discussion evidence.
     const prevAll = heatIndex(Number(r.heat_prev));
-    const [cur, prev] = Number(r.behind_participants) > 0 ? [heatIndex(Number(r.heat_obs)), heatIndex(Number(r.heat_prev_obs))] : [heat, prevAll];
+    const [cur, prev] = Number(r.behind_participants) > 0 ? [heatIndex(Number(r.heat_obs)), heatIndex(Number(r.heat_prev_obs))] : [heatIndex(Number(r.heat)), prevAll];
     const pct = prev > 0 ? (cur - prev) / prev : null;
     const firstAt = r.first_report_at ?? reports[0]!.at;
     const isNew = at.getTime() - firstAt.getTime() < 6 * 3600 * 1000;
@@ -154,7 +222,20 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
   const [row] = await sql<{ id: number }[]>`
     INSERT INTO hot_rankings (computed_at, rule_version, entries, evidence, published)
     VALUES (${at}, ${HOT_RULE_VERSION}, ${sql.json(entries as never)},
-            ${sql.json({ windowHours: WINDOW_HOURS, halfLifeHours: HALF_LIFE_HOURS, minParticipants: MIN_PARTICIPANTS, candidates: rows.length } as never)}, true)
+            ${sql.json({
+              windowHours: WINDOW_HOURS,
+              halfLifeHours: HALF_LIFE_HOURS,
+              minParticipants: MIN_PARTICIPANTS,
+              authoritySingle: {
+                enabled: true,
+                tier: "T1",
+                requiresFirstParty: true,
+                requiresSelected: true,
+                categories: [...AUTHORITY_CATEGORIES],
+                maxContribution: 1,
+              },
+              candidates: candidates.length,
+            } as never)}, true)
     RETURNING id`;
   // Keep a bounded history of rankings.
   await sql`DELETE FROM hot_rankings WHERE computed_at < now() - interval '30 days'`;
