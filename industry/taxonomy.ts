@@ -1,139 +1,156 @@
-// 这个行业的分类体系：类别、标签词表、公司（主体）名录，以及防止张冠李戴的身份词典。
-// 模型按这里的词表打标签，主题页（topics.json）按标签归类，筛选栏按类别分组。
-// 换行业时：类别的 key 会出现在网址里（/all?category=…），上线后就不要再改；标签和名录可以随时增减。
+// 法律行业分类体系：一级按“信息性质”分类，部门法作为主题标签。
+// 这样避免把“司法解释”“典型案例”“监管执法”强行塞进单一部门法。
 
-/**
- * 网页上的类别（筛选栏、卡片角标、RSS 分类订阅）。key 是网址和接口里的身份，上线后不要改。
- * section 是日报里的分节标题（几个类别可以共用一节，按这里的顺序排）；guide 告诉模型怎么归类。
- * 没归上类的资料在日报里放进第一个 key 为 industry 的类别所在的节（没有就放最后一节）。
- */
 export const CATEGORIES = [
-  { key: "ai-models", label: "模型", section: "模型发布/更新", guide: "新模型、模型版本、权重开放、模型能力与价格变化的发布与评测结果" },
-  { key: "ai-products", label: "产品", section: "产品发布/更新", guide: "AI 产品、功能、应用、工具、API 与平台的发布和更新" },
-  { key: "industry", label: "行业", section: "行业动态", guide: "公司经营、融资并购、人事、合作、诉讼、监管与政策、市场与基础设施" },
-  { key: "paper", label: "论文", section: "论文研究", guide: "研究论文、技术报告、基准与数据集" },
-  { key: "tip", label: "教程", section: "技巧与观点", guide: "教程、实践经验、使用技巧、提示词与工具用法、深度技术讲解" },
-  { key: "opinion", label: "观点", section: "技巧与观点", guide: "人物观点、评论、分析、访谈、现象与趋势讨论" },
+  { key: "legislation-policy", label: "立法政策", section: "立法与政策", guide: "法律、行政法规、部门规章、规范性文件、政策文件、征求意见稿、立法审议与废改立动态" },
+  { key: "judicial-rules", label: "司法规则", section: "司法规则", guide: "司法解释、批复、会议纪要、司法规范性文件、审判执行规则与检察规范" },
+  { key: "case-rules", label: "案例规则", section: "案例与裁判规则", guide: "指导性案例、典型案例、人民法院案例库案例、公报案例及具有明确规则价值的重要裁判" },
+  { key: "major-cases", label: "重大案件", section: "重大案件", guide: "具有重大法律争议、程序进展、社会影响或规则意义的诉讼、仲裁、执行及刑事案件" },
+  { key: "regulatory-enforcement", label: "监管执法", section: "监管与执法", guide: "证券、金融、市场监管、反垄断、数据、网信、知识产权等监管执法、处罚与合规规则" },
+  { key: "practice-research", label: "实务研究", section: "实务研究", guide: "律师、法官、检察官、学者的高质量法律分析、办案方法、规则梳理与实务复盘" },
+  { key: "legal-industry", label: "法律行业", section: "法律行业", guide: "律师行业、司法改革、法律服务市场、Legal AI、法律科技与专业工作方式变化" },
 ] as const;
 
-/**
- * 内容理解一步给每篇资料判的“内容类型”（写在 prompts/content-understanding.md 里，改了类型要同步改那份提示词）。
- * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
- */
-export const ITEM_TYPES = ["model_release", "product_launch", "tool_or_prompt", "research_paper", "industry_event", "opinion_analysis", "tutorial_explainer"] as const;
+export const ITEM_TYPES = [
+  "legislation_policy",
+  "judicial_rule",
+  "guiding_typical_case",
+  "major_judgment",
+  "regulatory_enforcement",
+  "practice_analysis",
+  "legal_industry",
+] as const;
 
-// ── 标签词表 ────────────────────────────────────────────────────────────────────────────
-
-/** 每篇资料的第一个标签必须是这些“分类标签”之一。 */
 export const CATEGORY_TAGS = [
-  "产品更新", "模型发布", "论文/研究", "开源/仓库", "教程/实践", "现象/趋势", "大佬观点", "评测/基准", "安全/对齐", "行业动态", "政策/监管",
-  "非AI/通用工具", "其他",
+  "立法政策",
+  "司法规则",
+  "案例规则",
+  "重大案件",
+  "监管执法",
+  "实务研究",
+  "法律行业",
+  "其他",
 ] as const;
 
-/** 可选的主题标签。 */
 export const TOPIC_TAGS = [
-  "Agent", "编码", "推理", "多模态", "语音", "视频", "图像生成", "RAG", "端侧", "数据/训练", "搜索", "部署/工程", "开源生态", "具身智能", "MCP/工具调用",
+  "刑事",
+  "民商事",
+  "公司治理",
+  "证券资本市场",
+  "金融",
+  "知识产权",
+  "劳动人事",
+  "建设工程",
+  "房地产",
+  "破产重整",
+  "行政法",
+  "数据合规",
+  "个人信息保护",
+  "网络安全",
+  "反垄断",
+  "反不正当竞争",
+  "税务",
+  "国际贸易",
+  "涉外争议",
+  "仲裁",
+  "执行",
+  "证据",
+  "诉讼程序",
+  "Legal AI",
+  "法律科技",
 ] as const;
 
-/** 可选的实体标签（公司、机构、平台）。 */
-export const ENTITY_TAGS = ["OpenAI", "Anthropic", "DeepSeek", "DeepMind", "Google", "Meta", "Microsoft", "xAI", "Hugging Face", "GitHub", "arXiv"] as const;
+export const ENTITY_TAGS = [
+  "全国人大",
+  "国务院",
+  "最高人民法院",
+  "最高人民检察院",
+  "司法部",
+  "市场监管总局",
+  "证监会",
+  "金融监管总局",
+  "国家网信办",
+  "国家知识产权局",
+] as const;
 
-/** 模型常写的近义词，统一成词表里的写法。 */
 export const TAG_SYNONYMS: Readonly<Record<string, string>> = {
-  "教程/玩法": "教程/实践", "技巧/最佳实践": "教程/实践", "合作/生态": "行业动态", "融资/收购": "行业动态", "公司动态": "行业动态",
-  合作: "行业动态", 生态: "行业动态", 融资: "行业动态", 收购: "行业动态", 投资: "行业动态", 并购: "行业动态",
-  政策: "政策/监管", 监管: "政策/监管", 法规: "政策/监管", 安全: "安全/对齐", 对齐: "安全/对齐",
-  论文: "论文/研究", 研究: "论文/研究", paper: "论文/研究", papers: "论文/研究",
-  "open-source": "开源/仓库", 开源: "开源/仓库", 仓库: "开源/仓库", repo: "开源/仓库",
-  教程: "教程/实践", 玩法: "教程/实践", 指南: "教程/实践", 技巧: "教程/实践", 最佳实践: "教程/实践", 实践: "教程/实践",
-  产品: "产品更新", 更新: "产品更新", 发布: "模型发布", 模型: "模型发布", 趋势: "现象/趋势", 现象: "现象/趋势", 观点: "大佬观点",
-  视频生成: "视频", 非ai: "非AI/通用工具", "non-ai": "非AI/通用工具", 通用工具: "非AI/通用工具", 工程工具: "非AI/通用工具",
-  安全扫描: "非AI/通用工具", devops: "非AI/通用工具", 行业: "行业动态", 动态: "行业动态",
+  法律法规: "立法政策",
+  法规政策: "立法政策",
+  立法动态: "立法政策",
+  司法解释: "司法规则",
+  会议纪要: "司法规则",
+  裁判规则: "案例规则",
+  典型案例: "案例规则",
+  指导性案例: "案例规则",
+  监管: "监管执法",
+  行政处罚: "监管执法",
+  执法: "监管执法",
+  律师实务: "实务研究",
+  法律分析: "实务研究",
+  行业动态: "法律行业",
+  法律AI: "Legal AI",
+  AI法律: "Legal AI",
+  商事: "民商事",
+  民事: "民商事",
+  公司法: "公司治理",
+  证券: "证券资本市场",
+  资本市场: "证券资本市场",
+  数据: "数据合规",
+  隐私: "个人信息保护",
+  反垄断法: "反垄断",
+  程序法: "诉讼程序",
 };
 
-/** 模型漏了分类标签时，按内容类型补一个。 */
 export const CATEGORY_BY_ITEM_TYPE: Readonly<Record<string, string>> = {
-  model_release: "模型发布", product_launch: "产品更新", tool_or_prompt: "教程/实践", research_paper: "论文/研究",
-  industry_event: "行业动态", opinion_analysis: "大佬观点", tutorial_explainer: "教程/实践",
+  legislation_policy: "立法政策",
+  judicial_rule: "司法规则",
+  guiding_typical_case: "案例规则",
+  major_judgment: "重大案件",
+  regulatory_enforcement: "监管执法",
+  practice_analysis: "实务研究",
+  legal_industry: "法律行业",
 };
 
-// ── 公司与主体 ──────────────────────────────────────────────────────────────────────────
-
-/** 公司主题：id → 显示名、卡片上显示的标签（null 表示只用 entity:<id> 归类）、别名。 */
 export const ENTITIES: Record<string, { name: string; displayTag: string | null; aliases: string[] }> = {
-  openai: { name: "OpenAI", displayTag: "OpenAI", aliases: ["OpenAI", "ChatGPT", "Sora", "Codex", "GPT"] },
-  anthropic: { name: "Anthropic", displayTag: "Anthropic", aliases: ["Anthropic", "Claude"] },
-  google: { name: "Google", displayTag: "Google", aliases: ["Google", "DeepMind", "Gemini", "谷歌"] },
-  deepseek: { name: "DeepSeek", displayTag: "DeepSeek", aliases: ["DeepSeek", "深度求索"] },
-  qwen: { name: "千问 Qwen", displayTag: null, aliases: ["Qwen", "通义", "阿里"] },
-  kimi: { name: "Kimi / 月之暗面", displayTag: null, aliases: ["Kimi", "月之暗面", "Moonshot"] },
-  minimax: { name: "MiniMax", displayTag: null, aliases: ["MiniMax", "海螺"] },
-  zhipu: { name: "智谱 GLM", displayTag: null, aliases: ["智谱", "GLM", "Z.ai"] },
-  xai: { name: "xAI", displayTag: "xAI", aliases: ["xAI", "Grok"] },
-  meta: { name: "Meta", displayTag: "Meta", aliases: ["Meta", "Llama"] },
-  microsoft: { name: "Microsoft", displayTag: "Microsoft", aliases: ["Microsoft", "微软", "Copilot"] },
-  nvidia: { name: "NVIDIA", displayTag: null, aliases: ["NVIDIA", "英伟达"] },
-  "hugging-face": { name: "Hugging Face", displayTag: "Hugging Face", aliases: ["Hugging Face"] },
-  cursor: { name: "Cursor", displayTag: null, aliases: ["Cursor", "Anysphere"] },
-  openrouter: { name: "OpenRouter", displayTag: null, aliases: ["OpenRouter"] },
+  npc: { name: "全国人大", displayTag: "全国人大", aliases: ["全国人民代表大会", "全国人大", "全国人大常委会", "全国人民代表大会常务委员会"] },
+  statecouncil: { name: "国务院", displayTag: "国务院", aliases: ["国务院", "中国政府网"] },
+  spc: { name: "最高人民法院", displayTag: "最高人民法院", aliases: ["最高人民法院", "最高法", "人民法院新闻传媒总社"] },
+  spp: { name: "最高人民检察院", displayTag: "最高人民检察院", aliases: ["最高人民检察院", "最高检"] },
+  moj: { name: "司法部", displayTag: "司法部", aliases: ["司法部"] },
+  samr: { name: "市场监管总局", displayTag: "市场监管总局", aliases: ["国家市场监督管理总局", "市场监管总局", "国家市场监管总局"] },
+  csrc: { name: "证监会", displayTag: "证监会", aliases: ["中国证券监督管理委员会", "中国证监会", "证监会"] },
+  nfra: { name: "金融监管总局", displayTag: "金融监管总局", aliases: ["国家金融监督管理总局", "金融监管总局"] },
+  cac: { name: "国家网信办", displayTag: "国家网信办", aliases: ["国家互联网信息办公室", "国家网信办", "网信办"] },
+  cnipa: { name: "国家知识产权局", displayTag: "国家知识产权局", aliases: ["国家知识产权局", "知识产权局"] },
 };
 
-/**
- * 身份词典：摘要和标题里出现的公司，必须在原文里也出现过，否则退回原标题、丢掉摘要（防止模型张冠李戴）。
- * 行业没有这个问题时可以留空数组。
- */
 export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; patterns: RegExp[] }> = [
-  { id: "openai", name: "OpenAI", patterns: [/openai|chatgpt|\bgpt-?[o\d]|\bsora\b|\bcodex\b/i] },
-  { id: "anthropic", name: "Anthropic", patterns: [/anthropic|\bclaude\b/i, /\b(?:opus|sonnet|haiku)\s*\d+(?:[.\-]\d+)*\b/i, /\bfable\s*\d+(?:[.\-]\d+)*\b|\bmythos\b/i] },
-  { id: "google", name: "Google / Gemini", patterns: [/google|deepmind|\bgemini\b|notebooklm|\bveo\s?\d|\bAlphaFold\b|\bAMIE\b/i] },
-  { id: "deepseek", name: "DeepSeek", patterns: [/deepseek|深度求索/i] },
-  { id: "xai", name: "xAI / Grok", patterns: [/\bxai\b|\bgrok\b/i] },
-  { id: "meta", name: "Meta / Llama", patterns: [/\bMeta\b/, /\bmeta\s?ai\b|\bllama\b/i] },
-  { id: "microsoft", name: "Microsoft / Copilot", patterns: [/microsoft|copilot|微软/i] },
-  { id: "nvidia", name: "NVIDIA", patterns: [/nvidia|英伟达|\bnemotron\b|\bnemo\b|\bblackwell\b|\brubin(?:\s+ultra)?\b|\bcuda\b/i] },
-  { id: "qwen", name: "千问 Qwen", patterns: [/\bqwen|通义|千问/i] },
-  { id: "hugging-face", name: "Hugging Face", patterns: [/hugging\s?face/i] },
-  { id: "cursor", name: "Cursor", patterns: [/\bCursor\b/] },
-  { id: "kimi", name: "Kimi / 月之暗面", patterns: [/\bkimi\b|月之暗面|\bmoonshot\s?ai\b/i] },
-  { id: "openrouter", name: "OpenRouter", patterns: [/openrouter/i] },
-  { id: "minimax", name: "MiniMax", patterns: [/minimax/i] },
-  { id: "zhipu", name: "智谱 GLM", patterns: [/智谱|\bglm-?[4-9]/i] },
-  { id: "hunyuan", name: "腾讯混元", patterns: [/混元|hunyuan/i] },
-  { id: "doubao", name: "字节豆包", patterns: [/豆包|doubao|字节跳动|bytedance/i] },
-  { id: "mistral", name: "Mistral", patterns: [/mistral/i] },
-  { id: "perplexity", name: "Perplexity", patterns: [/\bPerplexity\b/] },
-  { id: "runway", name: "Runway", patterns: [/\brunway\b/i] },
-  { id: "suno", name: "Suno", patterns: [/\bsuno\b/i] },
-  { id: "midjourney", name: "Midjourney", patterns: [/midjourney/i] },
-  { id: "stability-ai", name: "Stability AI", patterns: [/stability\s?ai/i] },
-  { id: "elevenlabs", name: "ElevenLabs", patterns: [/eleven\s?labs/i] },
-  { id: "vllm", name: "vLLM", patterns: [/\bvllm\b/i] },
-  { id: "ollama", name: "Ollama", patterns: [/\bollama\b/i] },
-  { id: "windsurf", name: "Windsurf", patterns: [/windsurf/i] },
-  { id: "devin", name: "Devin", patterns: [/\bdevin\b/i] },
-  { id: "manus", name: "Manus", patterns: [/\bmanus\b/i] },
-  { id: "apple", name: "Apple AI", patterns: [/\bapple\s?(intelligence|silicon|ai)\b|苹果(智能|\s?AI)/i] },
-  { id: "amazon", name: "Amazon / AWS", patterns: [/amazon|\baws\b|亚马逊/i] },
-  { id: "baidu", name: "百度文心", patterns: [/百度|baidu|文心|\bernie\s?bot\b/i] },
+  { id: "npc", name: "全国人大", patterns: [/全国人民代表大会|全国人大(?:常委会)?|全国人民代表大会常务委员会/] },
+  { id: "statecouncil", name: "国务院", patterns: [/国务院|中国政府网/] },
+  { id: "spc", name: "最高人民法院", patterns: [/最高人民法院|最高法/] },
+  { id: "spp", name: "最高人民检察院", patterns: [/最高人民检察院|最高检/] },
+  { id: "moj", name: "司法部", patterns: [/司法部/] },
+  { id: "samr", name: "市场监管总局", patterns: [/国家市场监督管理总局|市场监管总局|国家市场监管总局/] },
+  { id: "csrc", name: "证监会", patterns: [/中国证券监督管理委员会|中国证监会|证监会/] },
+  { id: "nfra", name: "金融监管总局", patterns: [/国家金融监督管理总局|金融监管总局/] },
+  { id: "cac", name: "国家网信办", patterns: [/国家互联网信息办公室|国家网信办|网信办/] },
+  { id: "cnipa", name: "国家知识产权局", patterns: [/国家知识产权局|知识产权局/] },
 ];
 
-/** 这些域名上的文章，发布方就是对应的公司（托管平台如 GitHub、arXiv 不算）。 */
 export const PUBLISHER_DOMAINS: ReadonlyArray<{ entityId: string; domains: readonly string[] }> = [
-  { entityId: "openai", domains: ["openai.com"] },
-  { entityId: "anthropic", domains: ["anthropic.com", "claude.com"] },
-  { entityId: "google", domains: ["deepmind.google", "ai.google", "blog.google"] },
-  { entityId: "deepseek", domains: ["deepseek.com"] },
-  { entityId: "xai", domains: ["x.ai"] },
-  { entityId: "meta", domains: ["ai.meta.com"] },
-  { entityId: "microsoft", domains: ["microsoft.com"] },
-  { entityId: "nvidia", domains: ["nvidia.com"] },
-  { entityId: "qwen", domains: ["qwen.ai"] },
-  { entityId: "cursor", domains: ["cursor.com"] },
-  { entityId: "openrouter", domains: ["openrouter.ai"] },
+  { entityId: "npc", domains: ["npc.gov.cn"] },
+  { entityId: "statecouncil", domains: ["gov.cn"] },
+  { entityId: "spc", domains: ["court.gov.cn"] },
+  { entityId: "spp", domains: ["spp.gov.cn"] },
+  { entityId: "moj", domains: ["moj.gov.cn"] },
+  { entityId: "samr", domains: ["samr.gov.cn"] },
+  { entityId: "csrc", domains: ["csrc.gov.cn"] },
+  { entityId: "nfra", domains: ["nfra.gov.cn"] },
+  { entityId: "cac", domains: ["cac.gov.cn"] },
+  { entityId: "cnipa", domains: ["cnipa.gov.cn"] },
 ];
 
-/** 原文里的这些写法也算提到了对应公司。 */
 export const IDENTITY_CONTEXT_ALIASES: ReadonlyArray<{ entityId: string; pattern: RegExp }> = [
-  { entityId: "meta", pattern: /@AIatMeta\b/i },
-  { entityId: "zhipu", pattern: /\bZhipu(?:\s+AI\b|['’]s\b)/i },
+  { entityId: "spc", pattern: /人民法院案例库|法答网/ },
+  { entityId: "spp", pattern: /检察机关案例库/ },
 ];
