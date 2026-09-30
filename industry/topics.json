@@ -35,6 +35,7 @@
     {"slug":"ip","name":"知识产权","group":"field","tags":["知识产权"],"definition":"专利、商标、著作权、商业秘密、技术合同及知识产权诉讼。","related":["unfair-competition","case-rules"]},
     {"slug":"labor","name":"劳动人事","group":"field","tags":["劳动人事"],"definition":"劳动合同、用工管理、竞业限制、社保与劳动争议。","related":["civil-commercial","case-rules"]},
     {"slug":"construction","name":"建设工程","group":"field","tags":["建设工程"],"definition":"建设工程施工合同、工程价款、实际施工人、优先受偿权与工程争议。","related":["real-estate","case-rules"]},
+    {"slug":"real-estate","name":"房地产","group":"field","tags":["房地产"],"definition":"房地产开发、房屋买卖与租赁、物业服务、不动产权利及相关争议与监管规则。","related":["construction","finance","civil-commercial"]},
     {"slug":"bankruptcy","name":"破产重整","group":"field","tags":["破产重整"],"definition":"破产受理、债权确认、重整、清算、管理人制度与执行破产衔接。","related":["corporate","enforcement"]},
     {"slug":"data-compliance","name":"数据合规","group":"field","tags":["数据合规","网络安全"],"definition":"数据安全、网络安全、数据跨境、平台治理和数据合规。","related":["cac","privacy","legal-ai"]},
     {"slug":"privacy","name":"个人信息保护","group":"field","tags":["个人信息保护"],"definition":"个人信息处理、敏感信息、自动化决策、跨境传输及隐私争议。","related":["cac","data-compliance"]},
