@@ -118,35 +118,61 @@ export function registerV1(app: FastifyInstance) {
     return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-daily", cacheControl: V1_CACHE_CONTROL.dailyByDate });
   }));
 
-  app.get("/api/v1/dailies/:date/changes", publicHandler(async (req, reply) => {
-    const q = strictQuery(req, ["cursor", "limit"]);
-    const date = (req.params as { date: string }).date;
-    if (!isValidDate(date)) throw new QueryError("date must be a real YYYY-MM-DD calendar date.");
-    const limit = intParam(q.limit, "limit", 1, 100, 50);
-    if (q.cursor !== undefined && q.cursor.length === 0) throw new InvalidCursorError("empty cursor");
-    const body = await selectedChanges({ date, limit, cursor: q.cursor ?? null });
-    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-changes", cacheControl: V1_CACHE_CONTROL.selectedChanges });
+  app.get("/api/v1/selected/snapshot", publicHandler(async (req, reply) => {
+    const q = strictQuery(req, ["fields", "limit", "page"]);
+    const fields = q.fields === undefined ? undefined : enumParam(q.fields, "fields", ["default", "minimal"] as const, "default");
+    const limit = intParam(q.limit, "limit", 1, 1000, 500);
+    const body = await selectedSnapshot({ fields, limit, page: q.page ?? null });
+    // asOf (and the next-page token that carries it) differ per request; the page content does not.
+    const etagOf = { fields: body.fields, cursor: body.cursor, count: body.count, hasMore: body.hasMore, items: body.items };
+    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-snapshot", cacheControl: V1_CACHE_CONTROL.selectedSnapshot, etagOf });
   }));
 
-  app.get("/api/v1/selected/snapshot", publicHandler(async (req, reply) => {
-    const q = strictQuery(req, ["limit"]);
+  app.get("/api/v1/selected/changes", publicHandler(async (req, reply) => {
+    const q = strictQuery(req, ["cursor", "limit"]);
     const limit = intParam(q.limit, "limit", 1, 100, 100);
-    const body = await selectedSnapshot(limit);
-    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-snapshot", cacheControl: V1_CACHE_CONTROL.selectedSnapshot });
+    if (!q.cursor) throw new SnapshotRequiredError("missing cursor");
+    const body = await selectedChanges({ cursor: q.cursor, limit });
+    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-changes", cacheControl: V1_CACHE_CONTROL.selectedChanges });
   }));
 }
 
-function registerCodexResets(app: FastifyInstance) {
-  app.get("/api/v1/codex-reset/recent", publicHandler(async (req, reply) => {
-    const q = strictQuery(req, ["hours"]);
-    const hours = intParam(q.hours, "hours", 1, 168, 24);
-    const body = await codexResetsRecent(hours);
-    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-codex-recent", cacheControl: V1_CACHE_CONTROL.codexRecent });
-  }));
+/** Registered last: CORS preflight, 405 for other methods, Problem 404 for undefined v1 paths. */
+export function registerV1Fallbacks(app: FastifyInstance) {
+  const notFound: Handler = async (req, reply) => {
+    applyPublicHeaders(reply);
+    const path = (req.raw.url ?? "").split("?")[0];
+    return sendProblem(req, reply, { status: 404, code: "not_found", title: "Not found", detail: `No public API v1 operation exists at ${path}.` });
+  };
+  const notAllowed: Handler = async (req, reply) => {
+    applyPublicHeaders(reply);
+    reply.header("Allow", "GET, HEAD, OPTIONS");
+    return sendProblem(req, reply, { status: 405, code: "method_not_allowed", detail: "This endpoint supports only GET, HEAD, and OPTIONS." });
+  };
+  const preflight: Handler = async (_req, reply) => {
+    applyPublicHeaders(reply);
+    return reply.code(204).header("Cache-Control", "public, max-age=86400").send();
+  };
+  for (const url of ["/api/v1", "/api/v1/*", "/api/public/*", "/openapi-v1.json", "/openapi.yaml"]) {
+    app.options(url, preflight);
+    app.route({ method: ["POST", "PUT", "PATCH", "DELETE"], url, handler: notAllowed });
+  }
+  app.get("/api/v1", notFound);
+  app.get("/api/v1/*", notFound);
+}
 
-  app.get("/api/v1/codex-reset/snapshot", publicHandler(async (req, reply) => {
+/** The Codex reset monitor's endpoints (an optional module, industry/features.ts). */
+function registerCodexResets(app: FastifyInstance) {
+  app.get("/api/v1/codex-resets", publicHandler(async (req, reply) => {
     strictQuery(req, []);
     const body = await codexResetsSnapshot();
-    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-codex-snapshot", cacheControl: V1_CACHE_CONTROL.codexSnapshot });
+    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-codex-resets", cacheControl: V1_CACHE_CONTROL.codexResets });
+  }));
+
+  // The same snapshot limited to the last week and the events still waiting to land: what a poller needs.
+  app.get("/api/v1/codex-resets/recent", publicHandler(async (req, reply) => {
+    strictQuery(req, []);
+    const body = await codexResetsRecent();
+    return sendJsonWithEtag(req, reply, body, { etagPrefix: "v1-codex-resets-recent", cacheControl: V1_CACHE_CONTROL.codexResets });
   }));
 }
