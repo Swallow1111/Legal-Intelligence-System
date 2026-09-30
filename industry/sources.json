@@ -78,6 +78,34 @@
       "syndicate_fulltext": false
     },
     {
+      "id": "external-courts",
+      "name": "法院系统 · Hermes 权威监测",
+      "kind": "external",
+      "config": {},
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["官方", "司法规则", "案例规则", "重大案件"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "external-procuratorates",
+      "name": "检察机关 · Hermes 权威监测",
+      "kind": "external",
+      "config": {},
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": ["官方", "司法规则", "案例规则", "重大案件"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
       "id": "external-state-council",
       "name": "国务院 · 外部权威采集",
       "kind": "external",
