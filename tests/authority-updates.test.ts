@@ -18,7 +18,7 @@ before(async () => {
   await sql`
     INSERT INTO sources (id, name, kind, tier, first_party, participation_mode, next_fetch_at) VALUES
       (${T1}, 'Authority T1', 'rss', 'T1', true, 'editorial', '2100-01-01'),
-      (${T15}, 'Authority T1.5', 'rss', 'T1.5', true, 'editorial', '2100-01-01'),
+      (${T15}, 'Authority T1.5', 'rss', 'T1_5', true, 'editorial', '2100-01-01'),
       (${T2}, 'Authority T2', 'rss', 'T2', true, 'editorial', '2100-01-01'),
       (${NON_FIRST}, 'Authority non-first', 'rss', 'T1', false, 'editorial', '2100-01-01')`;
 });
