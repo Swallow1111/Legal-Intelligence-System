@@ -7,6 +7,8 @@ import { queueProcessing } from "../jobs/content.ts";
 import { normalizeUrl } from "../lib/url.ts";
 
 export const MAX_ITEMS = 50;
+export const MAX_INGEST_EXCERPT_CHARS = 8_000;
+export const MAX_INGEST_BODY_CHARS = 120_000;
 
 export class IngestError extends Error {
   readonly status: number;
@@ -20,9 +22,25 @@ interface ItemIn {
   title?: unknown;
   url?: unknown;
   publishedAt?: unknown;
+  sourceUpdatedAt?: unknown;
   author?: unknown;
+  language?: unknown;
+  excerpt?: unknown;
+  bodyText?: unknown;
   raw?: { _aihot?: { backfill?: boolean; baseline?: boolean } } & Record<string, unknown>;
 }
+
+const text = (value: unknown, max: number): string | null => {
+  if (typeof value !== "string") return null;
+  const clean = value.trim();
+  return clean ? clean.slice(0, max) : null;
+};
+
+const date = (value: unknown): Date | null => {
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+};
 
 export async function ingestItems(body: { sourceId?: unknown; sourceName?: unknown; items?: unknown }): Promise<{ ok: true; created: number }> {
   const sourceId = typeof body.sourceId === "string" ? body.sourceId.trim() : "";
@@ -40,7 +58,7 @@ export async function ingestItems(body: { sourceId?: unknown; sourceName?: unkno
   const seen = new Set<string>();
   let created = 0;
   for (const it of items) {
-    const title = typeof it.title === "string" ? it.title.trim() : "";
+    const title = text(it.title, 1_000) ?? "";
     const rawUrl = typeof it.url === "string" ? it.url.trim() : "";
     if (!title || !rawUrl) continue;
     let url: string | null = null;
@@ -51,14 +69,20 @@ export async function ingestItems(body: { sourceId?: unknown; sourceName?: unkno
     }
     if (!url || seen.has(url)) continue;
     seen.add(url);
-    const published = typeof it.publishedAt === "string" ? new Date(it.publishedAt) : null;
     const flags = it.raw?._aihot ?? {};
+    const bodyText = text(it.bodyText, MAX_INGEST_BODY_CHARS);
+    const excerpt = text(it.excerpt, MAX_INGEST_EXCERPT_CHARS);
     const res = await upsertMaterial({
       sourceId: source!.id,
       url,
       title,
-      author: typeof it.author === "string" ? it.author.slice(0, 200) : null,
-      publishedAt: published && Number.isFinite(published.getTime()) ? published : null,
+      author: text(it.author, 200),
+      language: text(it.language, 32),
+      publishedAt: date(it.publishedAt),
+      sourceUpdatedAt: date(it.sourceUpdatedAt),
+      excerpt,
+      bodyText,
+      bodyStatus: bodyText ? "ok" : undefined,
       raw: it.raw ?? null,
       via: "ingest",
       backfill: flags.backfill ? "reported-backfill" : flags.baseline ? "reported-baseline" : null,
