@@ -1,4 +1,4 @@
-import type { AuthorityUpdateEntry } from "@aihot/contracts/site";
+import type { FeedItemSummary } from "@aihot/contracts/site";
 import { sql } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
 
@@ -14,6 +14,12 @@ interface CandidateRow {
   id: string;
   score: number | null;
   timeline_at: Date;
+}
+
+export interface AuthorityUpdateEntry {
+  rank: number;
+  storyPublicId: string | null;
+  item: FeedItemSummary;
 }
 
 export interface AuthorityUpdatesResult {
