@@ -22,8 +22,8 @@ const provider = await stub((_hit, req) => {
   const content =
     system.includes("宽召回") ? { label: "PASS", reason: "测试" }
     : system.includes("事件注意力评分器") ? { attentionScore: 80 }
-    : system.includes("内容理解编辑") ? { itemType: "product_launch", authorRole: "principal", tags: ["产品更新"], editorialJudgment: "理由", titleZh: "一个模型的标题", summaryZh: "一个模型写的摘要。第二句。" }
-    : system.includes("资料结构化助手") ? { category: "ai-products", tags: ["产品更新"], subjects: [], fact: null }
+    : system.includes("内容理解编辑") ? { itemType: "judicial_rule", authorRole: "principal", tags: ["司法规则", "诉讼程序", "最高人民法院"], editorialJudgment: "理由", titleZh: "最高人民法院发布司法规则", summaryZh: "最高人民法院发布司法规则。第二句说明程序影响。" }
+    : system.includes("资料结构化助手") ? { category: "judicial-rules", tags: ["司法规则", "诉讼程序"], subjects: ["spc"], fact: { title: "司法规则发布", subject: "最高人民法院", action: "发布", object: "司法规则", occurredAt: null } }
     : user.includes("title_zh") ? "title_zh: 标题\nsummary_zh: 摘要。"
     : null;
   if (content === null) throw new Error("unexpected request");
@@ -42,12 +42,12 @@ after(async () => {
 
 test("one model runs the prefilter, both scores, the writing and the structure", async () => {
   const { articleId } = await upsertMaterial({
-    sourceId: SOURCE, url: `https://example.com/${T}`, title: `A product launch ${T}`, bodyText: `A company launched a product with pricing and availability. ${T} `.repeat(6),
+    sourceId: SOURCE, url: `https://example.com/${T}`, title: `最高人民法院司法解释 ${T}`, bodyText: `最高人民法院 (Supreme People's Court) released a judicial interpretation with procedural and evidentiary rules. ${T} `.repeat(6),
     bodyStatus: "ok", via: "fetch", publishedAt: new Date(),
   } as never);
   const res = await analyzeArticle(articleId);
   assert.equal(res!.output!.selected, true);
-  assert.equal(res!.output!.titleZh, "一个模型的标题");
+  assert.equal(res!.output!.titleZh, "最高人民法院发布司法规则");
   assert.equal(seen.length, 5, "prefilter, two scores, understand, structure");
   assert.ok(seen.every((r) => r.model === "one-model"), "every request names the configured model");
   const services = await sql<{ service: string }[]>`SELECT DISTINCT service FROM receipts WHERE subject LIKE ${`article:${articleId}%`}`;

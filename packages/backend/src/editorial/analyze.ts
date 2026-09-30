@@ -127,6 +127,20 @@ const StructureSchema = z.object({
   fact: FactSchema,
 });
 
+export const LegalChangeSchema = z
+  .object({
+    status: z.string().trim().max(120).nullable().catch(null),
+    whatHappened: z.string().trim().min(1).max(800),
+    previousRule: z.string().trim().max(1200).nullable().catch(null),
+    whatChanged: z.string().trim().min(1).max(1200),
+    affectedWork: z.string().trim().max(1200).nullable().catch(null),
+    lawyerAction: z.string().trim().max(1200).nullable().catch(null),
+  })
+  .nullable()
+  .catch(null);
+
+export type LegalChangeCard = z.infer<typeof LegalChangeSchema>;
+
 const UnderstandSchema = z.object({
   itemType: z.enum(ITEM_TYPES),
   authorRole: z.enum(["principal", "observer", "relayer"]).catch("relayer"),
@@ -134,6 +148,7 @@ const UnderstandSchema = z.object({
   editorialJudgment: z.string().max(400).catch(""),
   titleZh: z.string().trim().min(1).max(200),
   summaryZh: z.string().trim().min(1).max(4000),
+  legalChange: LegalChangeSchema,
 });
 
 const SummarizeSchema = z.object({ titleZh: z.string(), summaryZh: z.string(), bodyZh: z.string() });
@@ -167,6 +182,7 @@ export interface AnalysisRun {
     tags: string[] | null;
     itemType?: string;
     authorRole?: string;
+    legalChange?: LegalChangeCard;
     identityGuard?: IdentityGuard;
     receiptIds: number[];
     reused: boolean;
@@ -292,7 +308,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
   return {
     kind: "understand", model: res.model, titleZh: copy.titleZh, summaryZh: copy.summaryZh, reasonZh: d.editorialJudgment.trim() || null,
     tags: normalizeTags(d.tags, { fallbackCategory: CATEGORY_BY_ITEM_TYPE[d.itemType] }), itemType: d.itemType, authorRole: d.authorRole,
-    identityGuard: copy.identityGuard, receiptIds: [res.receiptId], reused: res.reused,
+    legalChange: d.legalChange, identityGuard: copy.identityGuard, receiptIds: [res.receiptId], reused: res.reused,
   };
 }
 
@@ -398,6 +414,7 @@ export function normalizeAnalysis(run: AnalysisRun) {
     titleZh,
     summaryZh,
     reasonZh: run.writing?.reasonZh ?? null,
+    legalChange: run.writing?.legalChange ?? null,
     fact: run.structure?.fact ?? null,
   };
 }
@@ -432,6 +449,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
     scores: out.scores, scoreModel: out.scoreModel, threshold: out.threshold, ...(out.scoreRefused ? { scoreRefused: true } : {}),
     ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
     ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
+    legalChange: out.legalChange,
     fact: out.fact,
   };
   const committed = await sql.begin(async (tx) => {

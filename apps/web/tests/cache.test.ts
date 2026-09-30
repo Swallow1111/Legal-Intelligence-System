@@ -30,6 +30,10 @@ const api = createServer((req, res) => {
     res.setHeader("Cache-Control", "public, max-age=30, s-maxage=30");
     return res.end(JSON.stringify({ filters, cards: [], nextCursor: null, refreshAt, dayCounts: [], hot: null, generatedAt: "2026-09-28T00:00:00Z" }));
   }
+  if (url.pathname === "/api/site/authority") {
+    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=30");
+    return res.end(JSON.stringify({ entries: [], refreshAt, generatedAt: "2026-09-28T00:00:00Z" }));
+  }
   if (url.pathname === "/api/site/hot") return res.end(JSON.stringify({ entries: [] }));
   if (url.pathname === "/api/site/echo-client") return res.end(JSON.stringify({ forwarded: req.headers["x-forwarded-for"], real: req.headers["x-real-ip"] }));
   if (url.pathname === "/api/site/items/long-lived") return res.end(JSON.stringify({ id: "long-lived", title: "t" }));

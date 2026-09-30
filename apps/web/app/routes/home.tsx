@@ -8,6 +8,7 @@ import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Wordmark } from "../components/Logo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
+import { AuthorityUpdates, type AuthorityUpdatesResponse } from "../features/feed/AuthorityUpdates";
 import { CategoryTabs, SearchField, SearchIconLink } from "../features/feed/Filters";
 import { beijingDate, beijingWeekday } from "../lib/format";
 
@@ -21,9 +22,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   const channel = isChannelKey(channelParam) ? channelParam : "all";
   const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
   const tag = url.searchParams.get("tag")?.trim() || null;
+  const overview = channel === "all" && !category && !tag;
   const upstream = new Headers();
-  const data = await loadOr404<TimelineResponse>(`/api/site/timeline${queryString({ channel: channel === "all" ? null : channel, category, tag })}`, { responseHeaders: upstream, signal: request.signal });
-  return withHeaders({ data, filters: { channel, category, tag, topic: null } }, { headers: releaseBoundCache(data.refreshAt, 60, Date.now(), upstream) });
+  const [data, authority] = await Promise.all([
+    loadOr404<TimelineResponse>(`/api/site/timeline${queryString({ channel: channel === "all" ? null : channel, category, tag })}`, { responseHeaders: upstream, signal: request.signal }),
+    overview ? loadOr404<AuthorityUpdatesResponse>("/api/site/authority", { signal: request.signal }) : Promise.resolve(null),
+  ]);
+  const refreshAt = [data.refreshAt, authority?.refreshAt ?? null].filter((value): value is string => !!value).sort()[0] ?? null;
+  return withHeaders({ data, authority, filters: { channel, category, tag, topic: null } }, { headers: releaseBoundCache(refreshAt, 60, Date.now(), upstream) });
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -47,11 +53,11 @@ function TodayLabel() {
 }
 
 export default function Home() {
-  const { data, filters } = useLoaderData<typeof loader>();
-  const title = filters.tag ? `#${filters.tag}` : "精选";
+  const { data, authority, filters } = useLoaderData<typeof loader>();
+  const title = filters.tag ? `#${filters.tag}` : "律师精选";
   return (
     <div className="pb-6">
-      {/* Phones: brand bar, today's hot topics, then the feed under "最新精选". */}
+      {/* Phones: brand bar, authority updates, discussion heat, then lawyer picks. */}
       <div className="flex h-14 items-center justify-between lg:hidden">
         <Wordmark size={20} className="text-ink" />
         <TodayLabel />
@@ -64,9 +70,10 @@ export default function Home() {
         </div>
       </div>
 
+      {authority && <AuthorityUpdates entries={authority.entries} />}
       {data.hot && <HotTopics entries={data.hot} />}
 
-      <h2 className="mt-6 text-[20px] font-bold text-ink lg:hidden">{filters.tag ? title : "最新精选"}</h2>
+      <h2 className="mt-6 text-[20px] font-bold text-ink lg:hidden">{filters.tag ? title : "律师精选"}</h2>
       <div className="-mx-4 mt-3 flex items-center gap-2 pl-4 pr-2 lg:hidden">
         <CategoryTabs base="/" category={filters.category} channel={filters.channel} layoutId="home-cat-mobile" size="sm" className="min-w-0 flex-1" />
         <SearchIconLink />
