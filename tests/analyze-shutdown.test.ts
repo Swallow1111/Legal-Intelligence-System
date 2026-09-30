@@ -100,8 +100,8 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   const queue = `test.analyze-stop-${T}-final`;
   const boss = await getBoss();
   await boss.createQueue(queue, { policy: "short", retryLimit: 4, retryDelay: 1, expireInSeconds: 120 });
-  const { articleId } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.org/analyze-stop-${T}/final`, title: `Final judicial interpretation ${T}`,
-    bodyText: `The Supreme People's Court released a judicial interpretation on civil procedure and evidence. ${T} ` + "The document explains scope, procedure and evidentiary requirements. ".repeat(10),
+  const { articleId } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.org/analyze-stop-${T}/final`, title: `最高人民法院司法解释 Final judicial interpretation ${T}`,
+    bodyText: `最高人民法院 (Supreme People's Court) released a judicial interpretation on civil procedure and evidence. ${T} ` + "The document explains scope, procedure and evidentiary requirements. ".repeat(10),
     bodyStatus: "ok", language: "en", via: "fetch", publishedAt: new Date() });
   const jobId = await boss.send(queue, { articleId }, { singletonKey: articleId });
   const running = worker(queue);
@@ -123,8 +123,8 @@ for (const failScore of [false, true]) test(`SIGTERM during ${failScore ? "faile
   const boss = await getBoss();
   // Isolate this real pg-boss worker from articles queued by the other invariant tests.
   await boss.createQueue(queue, { policy: "short", retryLimit: 4, retryDelay: 1, expireInSeconds: 120 });
-  const { articleId } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.org/analyze-stop-${T}/${failScore}`, title: `A judicial interpretation released ${T} ${failScore}`,
-    bodyText: `A court released a judicial interpretation with rules on civil procedure and evidence. ${T} ${failScore} ` + "The document explains scope, procedure and evidentiary requirements. ".repeat(10),
+  const { articleId } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.org/analyze-stop-${T}/${failScore}`, title: `最高人民法院司法解释 A judicial interpretation released ${T} ${failScore}`,
+    bodyText: `最高人民法院 (Supreme People's Court) released a judicial interpretation with rules on civil procedure and evidence. ${T} ${failScore} ` + "The document explains scope, procedure and evidentiary requirements. ".repeat(10),
     bodyStatus: "ok", language: "en", via: "fetch", publishedAt: new Date() });
   await sql`UPDATE articles SET processing_attempts=2,processing_error='prior temporary failure',processing_queued_at=now() WHERE id=${articleId}`;
   const jobId = await boss.send(queue, { articleId }, { singletonKey: articleId });
