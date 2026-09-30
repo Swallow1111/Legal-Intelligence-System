@@ -20,9 +20,8 @@ function TrendMark({ trend }: { trend: HotStripEntry["trend"] }) {
 }
 
 /**
- * The top of the hot ranking on the home page, kept quiet: a live dot, coloured ranks and titles, then
- * columns of fixed width so every row lines up — who is talking (精选组 faces, from sm), "N 热度" and an arrow for
- * where it is heading. The whole row lights up on hover.
+ * Multi-source discussion heat on the home page. This section represents how many independent sources
+ * are talking about an event; authoritative legal updates have their own lane above it.
  */
 export function HotTopics({ entries }: { entries: HotStripEntry[] }) {
   if (entries.length === 0) return null;
@@ -37,7 +36,7 @@ export function HotTopics({ entries }: { entries: HotStripEntry[] }) {
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-hot opacity-40" />
             <span className="relative inline-flex size-2 rounded-full bg-hot" />
           </span>
-          当前热点
+          多源热议
         </h2>
         <Link to="/hot" className="group inline-flex items-center gap-1 text-[12.5px] text-ink-3 transition-colors hover:text-accent">
           完整榜单 <IconArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-0.5" />
