@@ -51,7 +51,7 @@ export async function loadAuthorityUpdates(limit = 5, now = new Date()): Promise
         JOIN sources s ON s.id = p.source_id
         WHERE ${selectedCondition(now)}
           AND p.first_party
-          AND s.tier IN ('T1', 'T1.5')
+          AND s.tier IN ('T1', 'T1_5')
           AND p.category IN ${sql([...AUTHORITY_CATEGORIES])}
           AND p.timeline_at >= ${windowStart}
       )
@@ -68,7 +68,7 @@ export async function loadAuthorityUpdates(limit = 5, now = new Date()): Promise
         AND p.selected
         AND p.visible_after > ${now}
         AND p.first_party
-        AND s.tier IN ('T1', 'T1.5')
+        AND s.tier IN ('T1', 'T1_5')
         AND p.category IN ${sql([...AUTHORITY_CATEGORIES])}
         AND p.timeline_at >= ${windowStart}`,
   ]);
