@@ -11,7 +11,7 @@ export const SITE = {
   defaultUrl: "http://localhost:3000",
   mcpPrefix: "legal_intel",
   contactEmail: null as string | null,
-  footerNote: "基于 AIHOT 开源框架构建",
+  footerNote: null as string | null,
   icp: null as string | null,
   organization: {
     name: "Legal Intelligence",
