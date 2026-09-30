@@ -31,24 +31,35 @@ after(async () => {
 let n = 0;
 async function makeItem(sourceId: string, category: string, score: number, hoursAgo = 1) {
   n += 1;
+  const itemNo = n;
   const publishedAt = new Date(NOW.getTime() - hoursAgo * 60 * 60 * 1000);
+  const url = `https://example.com/${T}/authority-${itemNo}`;
   const { articleId } = await upsertMaterial({
     sourceId,
-    url: `https://example.com/${T}/authority-${n}`,
-    title: `Authority ${n} ${T}`,
-    bodyText: `Legal authority update ${n} ${T}. `.repeat(20),
+    url,
+    title: `Authority ${itemNo} ${T}`,
+    bodyText: `Legal authority update ${itemNo} ${T}. `.repeat(20),
     bodyStatus: "ok",
     via: "fetch",
     publishedAt,
   });
+  const legalChange = {
+    status: "已公布，尚未施行",
+    whatHappened: `发生了什么 ${itemNo}`,
+    previousRule: `原规则 ${itemNo}`,
+    whatChanged: `改了什么 ${itemNo}`,
+    affectedWork: `影响业务 ${itemNo}`,
+    lawyerAction: `律师注意 ${itemNo}`,
+  };
   await sql`
-    INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected)
-    VALUES (${articleId}, 1, 'rule', 'pass', ${category}, ${`权威更新 ${n}-${T}`}, ${`摘要 ${n}-${T}`}, '影响法律适用', ${score}, true)`;
+    INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, output)
+    VALUES (${articleId}, 1, 'rule', 'pass', ${category}, ${`权威更新 ${itemNo}-${T}`}, ${`摘要 ${itemNo}-${T}`}, '影响法律适用', ${score}, true,
+      ${sql.json({ legalChange } as never)})`;
   await publishArticle(articleId, { releasedAt: new Date(NOW.getTime() - 5 * 60 * 1000) });
   // Keep the test independent of publication timeline heuristics: authority freshness is explicitly
   // defined against the publication timeline field.
   await sql`UPDATE publications SET timeline_at = ${publishedAt}, sort_at = ${publishedAt} WHERE article_id = ${articleId}`;
-  return articleId;
+  return { articleId, url, legalChange };
 }
 
 test("authority updates are first-party authoritative legal changes, ranked by legal score inside 48h", async () => {
@@ -60,9 +71,11 @@ test("authority updates are first-party authoritative legal changes, ranked by l
   const expired = await makeItem(T1, "case-rules", 100, 72);
 
   const result = await loadAuthorityUpdates(10, NOW);
-  assert.deepEqual(result.entries.map((entry) => entry.item.id), [top, second]);
+  assert.deepEqual(result.entries.map((entry) => entry.item.id), [top.articleId, second.articleId]);
   assert.deepEqual(result.entries.map((entry) => entry.rank), [1, 2]);
-  assert.ok(!result.entries.some((entry) => [wrongCategory, weakTier, notFirstParty, expired].includes(entry.item.id)));
+  assert.ok(!result.entries.some((entry) => [wrongCategory, weakTier, notFirstParty, expired].some((item) => item.articleId === entry.item.id)));
   assert.equal(result.entries[0]!.item.source.name, "Authority T1");
   assert.equal(result.entries[1]!.item.source.name, "Authority T1.5");
+  assert.deepEqual(result.entries[0]!.legalChange, top.legalChange);
+  assert.equal(result.entries[0]!.originalUrl, top.url);
 });
